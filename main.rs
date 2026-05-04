@@ -1,4 +1,5 @@
 use std::env::args;
+use std::process::exit;
 use std::fs::read_to_string;
 
 #[derive(Debug)]
@@ -10,9 +11,10 @@ enum ConstType {
 #[derive(Debug)]
 enum Ast {
  Const(ConstType),
- Var(String),
- Call(String,Vec<Ast>),
  Expr(Vec<Ast>),
+ Var(String),
+ Assign(String,Vec<Ast>),
+ Call(String,Vec<Ast>),
 }
 
 struct Parser {
@@ -35,6 +37,13 @@ impl Parser {
   return;
  }
 
+ fn next(&mut self)->Option<Token> {
+  if self.pos+1<self.len {
+   return Some(self.tokens[self.pos+1].clone());
+  }
+  None
+ }
+
  fn parse(&mut self,state:i32)->Vec<Ast> {
   let mut res=Vec::<Ast>::with_capacity(self.len);
   while self.pos<self.len {
@@ -45,17 +54,30 @@ impl Parser {
      } else if i.is_some() {
       res.push(Ast::Const(ConstType::Int(i.unwrap())));
      } else {
-      panic!("Undefined constant");
+      println!("Undefined constant");
+      exit(1);
      }
     },
     Token::Var(s) => {
-     res.push(Ast::Var(s));
+     if state!=1 && self.next().is_some() {
+      let nt=self.next();
+      match nt.unwrap() {
+       Token::Sep => (),
+       _ => {
+        let mut name=String::from(s);
+        self.advance();
+        res.push(Ast::Assign(name.clone(),self.parse(1)));
+       }
+      }
+     } else {
+      res.push(Ast::Var(s));
+     }
     },
     Token::Func(s) => {
-     let mut fname=String::from(s);
+     let mut name=String::from(s);
      self.advance();
-     res.push(Ast::Call(fname.clone(),self.parse(1)));
-     fname.clear();
+     res.push(Ast::Call(name.clone(),self.parse(1)));
+     name.clear();
     },
     Token::Paren(c) => {
      if state==2 && c==')' { self.advance(); res.shrink_to_fit(); return res; }
@@ -65,7 +87,7 @@ impl Parser {
      }
     },
     Token::Sep => {
-     if state==1 { self.advance(); res.shrink_to_fit(); return res; }
+     if state==1 { res.shrink_to_fit(); return res; }
     },
    }
    self.advance();
@@ -162,10 +184,12 @@ impl Lexer {
 fn main() {
  let argv:Vec<String>=args().collect();
  if argv.len()<2 {
-  panic!("Expected a file");
+  println!("Expected a file");
+  exit(1);
  }
  if !argv[1].ends_with(".mtknfkktr") {
-  panic!("Expected extension \".mtknfkktr\"");
+  println!("Expected extension \".mtknfkktr\"");
+  exit(1)
  }
  let code=read_to_string(argv[1].clone()).unwrap();
  let mut lexer=Lexer::init(code);
