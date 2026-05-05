@@ -80,7 +80,7 @@ impl Parser {
      name.clear();
     },
     Token::Paren(c) => {
-     if state==2 && c==')' { self.advance(); res.shrink_to_fit(); return res; }
+     if state==2 && c==')' { res.shrink_to_fit(); return res; }
      else if c=='(' {
       self.advance();
       res.push(Ast::Expr(self.parse(2)));
