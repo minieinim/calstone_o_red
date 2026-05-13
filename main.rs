@@ -90,6 +90,7 @@ fn lex(code:String)->Vec<Token> {
 fn parse(tokens:Vec<Token>)->Vec<Ast> {
  let len=tokens.len();
  let mut i=0;
+ let mut b=0;
  let mut res=Vec::<Ast>::with_capacity(len);
  while i<len {
   if tokens[i].kind==TokenType::Const {
@@ -99,12 +100,19 @@ fn parse(tokens:Vec<Token>)->Vec<Ast> {
     let name=tokens[i].sval.clone().unwrap();
     let mut a=Vec::<Token>::with_capacity(len);
     i+=2;
-    while i<len {
+    b+=1;
+    if tokens[i].kind==TokenType::CParen {
+     i+=1;
+     b-=1;
+    }
+    while i<len && b>0 {
      a.push(tokens[i].clone());
      i+=1;
      if tokens[i].kind==TokenType::CParen {
-      a.pop();
       i+=1;
+      b-=1;
+     }
+     if b==0 {
       break;
      }
      if tokens[i].kind!=TokenType::Comma {
@@ -115,7 +123,11 @@ fn parse(tokens:Vec<Token>)->Vec<Ast> {
     if tokens[i].kind!=TokenType::Sep {
      err("Expected a seperator");
     }
-    res.push(Ast{kind:AstType::Call,sval:None,ival:None,callee:Some(name.clone()),args:Some(parse(a.clone()))});
+    if a.len()>0 {
+     res.push(Ast{kind:AstType::Call,sval:None,ival:None,callee:Some(name.clone()),args:Some(parse(a.clone()))});
+    } else {
+     res.push(Ast{kind:AstType::Call,sval:None,ival:None,callee:Some(name.clone()),args:None});
+    }
     a.clear();
    }
   }
