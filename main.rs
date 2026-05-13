@@ -24,6 +24,7 @@ enum TokenType {
  Name,
  OParen,
  CParen,
+ Comma,
 }
 
 #[derive(Debug,Clone)]
@@ -77,6 +78,8 @@ fn lex(code:String)->Vec<Token> {
    res.push(Token{kind:TokenType::OParen,sval:None,ival:None});
   } else if code.chars().nth(i).unwrap()==')' {
    res.push(Token{kind:TokenType::CParen,sval:None,ival:None});
+  } else if code.chars().nth(i).unwrap()==',' {
+   res.push(Token{kind:TokenType::Comma,sval:None,ival:None});
   }
   i+=1;
  }
@@ -88,19 +91,33 @@ fn parse(tokens:Vec<Token>)->Vec<Ast> {
  let len=tokens.len();
  let mut i=0;
  let mut res=Vec::<Ast>::with_capacity(len);
- let mut a=Vec::<Token>::with_capacity(len);
  while i<len {
   if tokens[i].kind==TokenType::Const {
    res.push(Ast{kind:AstType::Const,sval:tokens[i].sval.clone(),ival:tokens[i].ival.clone(),callee:None,args:None});
   } else if tokens[i].kind==TokenType::Name {
-   let name=tokens[i].sval.clone().unwrap();
-   i+=1;
-   while i<len && tokens[i].kind!=TokenType::Sep {
-    a.push(tokens[i].clone());
-    i+=1;
+   if tokens[i+1].kind==TokenType::OParen {
+    let name=tokens[i].sval.clone().unwrap();
+    let mut a=Vec::<Token>::with_capacity(len);
+    i+=2;
+    while i<len {
+     a.push(tokens[i].clone());
+     i+=1;
+     if tokens[i].kind==TokenType::CParen {
+      a.pop();
+      i+=1;
+      break;
+     }
+     if tokens[i].kind!=TokenType::Comma {
+      err("Expected a comma");
+     }
+     i+=1;
+    }
+    if tokens[i].kind!=TokenType::Sep {
+     err("Expected a seperator");
+    }
+    res.push(Ast{kind:AstType::Call,sval:None,ival:None,callee:Some(name.clone()),args:Some(parse(a.clone()))});
+    a.clear();
    }
-   res.push(Ast{kind:AstType::Call,sval:None,ival:None,callee:Some(name.clone()),args:Some(parse(a.clone()))});
-   a.clear();
   }
   i+=1;
  }
