@@ -5,6 +5,7 @@ use std::fs::read_to_string;
 #[derive(Debug,Clone,PartialEq)]
 enum AstType {
  Const,
+ Expr,
  Call,
 }
 
@@ -21,6 +22,8 @@ enum TokenType {
  Sep,
  Const,
  Name,
+ OParen,
+ CParen,
 }
 
 #[derive(Debug,Clone)]
@@ -70,6 +73,10 @@ fn lex(code:String)->Vec<Token> {
   }
   if code.chars().nth(i).unwrap()==';' {
    res.push(Token{kind:TokenType::Sep,sval:None,ival:None});
+  } else if code.chars().nth(i).unwrap()=='(' {
+   res.push(Token{kind:TokenType::OParen,sval:None,ival:None});
+  } else if code.chars().nth(i).unwrap()==')' {
+   res.push(Token{kind:TokenType::CParen,sval:None,ival:None});
   }
   i+=1;
  }
@@ -80,11 +87,26 @@ fn lex(code:String)->Vec<Token> {
 fn parse(tokens:Vec<Token>)->Vec<Ast> {
  let len=tokens.len();
  let mut i=0;
- //let mut b=0;
  let mut res=Vec::<Ast>::with_capacity(len);
  while i<len {
   if tokens[i].kind==TokenType::Const {
    res.push(Ast{kind:AstType::Const,sval:tokens[i].sval.clone(),ival:tokens[i].ival.clone(),args:None});
+  } else if tokens[i].kind==TokenType::OParen {
+   let mut a=1;
+   let mut b=Vec::<Token>::with_capacity(len);
+   i+=1;
+   while i<len {
+    if tokens[i].kind==TokenType::OParen { a+=1; }
+    else if tokens[i].kind==TokenType::CParen { a-=1; }
+    if a==0 { break; }
+    b.push(tokens[i].clone());
+    i+=1;
+   }
+   b.shrink_to_fit();
+   if b.len()>0 {
+    res.push(Ast{kind:AstType::Expr,sval:None,ival:None,args:Some(parse(b.clone()))});
+   }
+   b.clear();
   } else if tokens[i].kind==TokenType::Name {
    let name=tokens[i].sval.clone().unwrap();
    let mut a=Vec::<Token>::with_capacity(len);
