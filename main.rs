@@ -126,6 +126,15 @@ fn parse(tokens:Vec<Token>)->Vec<Ast> {
  return res;
 }
 
+fn run(ast:Vec<Ast>) {
+ let mut i=0;
+ while i<ast.len() {
+  println!("{:?}",ast[i]);
+  i+=1;
+ }
+ return;
+}
+
 fn main() {
  let argv:Vec<String>=args().collect();
  if argv.len()==1 {
@@ -136,8 +145,6 @@ fn main() {
  let code=read_to_string(argv[1].clone()).unwrap();
  let tokens=lex(code);
  let ast=parse(tokens);
- for i in ast {
-  println!("- - -{:?}",i);
- }
+ run(ast);
  return;
 }
