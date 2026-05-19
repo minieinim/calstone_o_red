@@ -4,7 +4,7 @@ use std::fs::read_to_string;
 
 #[derive(Debug,PartialEq)]
 enum Ret {
- Const(Option<String>,Option<i32>),
+ Const(Option<String>,Option<f32>),
  Name(String),
  Expr(Vec<Ast>),
 }
@@ -31,7 +31,7 @@ enum AstType {
 struct Ast {
  kind:AstType,
  sval:Option<String>,
- ival:Option<i32>,
+ fval:Option<f32>,
  args:Option<Vec<Ast>>,
 }
 
@@ -48,7 +48,7 @@ enum TokenType {
 struct Token {
  kind:TokenType,
  sval:Option<String>,
- ival:Option<i32>,
+ fval:Option<f32>,
 }
 
 fn err(msg:&str) {
@@ -68,14 +68,17 @@ fn lex(code:String)->Vec<Token> {
     word.push(code.chars().nth(i).unwrap());
     i+=1;
    }
-   res.push(Token{kind:TokenType::Name,sval:Some(word.clone()),ival:None});
+   res.push(Token{kind:TokenType::Name,sval:Some(word.clone()),fval:None});
    word.clear();
   } else if code.chars().nth(i).unwrap().is_ascii_digit() {
-   while i<len && code.chars().nth(i).unwrap().is_ascii_digit() {
+   let mut c=0;
+   while i<len && (code.chars().nth(i).unwrap().is_ascii_digit() || code.chars().nth(i).unwrap()=='.') {
+    if code.chars().nth(i).unwrap()=='.' { c+=1; }
+    if c>1 { err("Unexpected period in number"); }
     word.push(code.chars().nth(i).unwrap());
     i+=1;
    }
-   res.push(Token{kind:TokenType::Const,sval:None,ival:Some(word.parse::<i32>().unwrap())});
+   res.push(Token{kind:TokenType::Const,sval:None,fval:Some(word.parse::<f32>().unwrap())});
    word.clear();
   } else if code.chars().nth(i).unwrap()=='"' {
    i+=1;
@@ -86,15 +89,15 @@ fn lex(code:String)->Vec<Token> {
     word.push(code.chars().nth(i).unwrap());
     i+=1;
    }
-   res.push(Token{kind:TokenType::Const,sval:Some(word.clone()),ival:None});
+   res.push(Token{kind:TokenType::Const,sval:Some(word.clone()),fval:None});
    word.clear();
   }
   if code.chars().nth(i).unwrap()==';' {
-   res.push(Token{kind:TokenType::Sep,sval:None,ival:None});
+   res.push(Token{kind:TokenType::Sep,sval:None,fval:None});
   } else if code.chars().nth(i).unwrap()=='(' {
-   res.push(Token{kind:TokenType::OParen,sval:None,ival:None});
+   res.push(Token{kind:TokenType::OParen,sval:None,fval:None});
   } else if code.chars().nth(i).unwrap()==')' {
-   res.push(Token{kind:TokenType::CParen,sval:None,ival:None});
+   res.push(Token{kind:TokenType::CParen,sval:None,fval:None});
   }
   i+=1;
  }
@@ -108,7 +111,7 @@ fn parse(tokens:Vec<Token>)->Vec<Ast> {
  let mut res=Vec::<Ast>::with_capacity(len);
  while i<len {
   if tokens[i].kind==TokenType::Const {
-   res.push(Ast{kind:AstType::Const,sval:tokens[i].sval.clone(),ival:tokens[i].ival.clone(),args:None});
+   res.push(Ast{kind:AstType::Const,sval:tokens[i].sval.clone(),fval:tokens[i].fval.clone(),args:None});
   } else if tokens[i].kind==TokenType::OParen {
    let mut a=1;
    let mut b=Vec::<Token>::with_capacity(len);
@@ -122,7 +125,7 @@ fn parse(tokens:Vec<Token>)->Vec<Ast> {
    }
    b.shrink_to_fit();
    if b.len()>0 {
-    res.push(Ast{kind:AstType::Expr,sval:None,ival:None,args:Some(parse(b.clone()))});
+    res.push(Ast{kind:AstType::Expr,sval:None,fval:None,args:Some(parse(b.clone()))});
    }
    b.clear();
   } else if tokens[i].kind==TokenType::Name {
@@ -134,8 +137,8 @@ fn parse(tokens:Vec<Token>)->Vec<Ast> {
     i+=1;
    }
    a.shrink_to_fit();
-   if a.len()>0 { res.push(Ast{kind:AstType::Call,sval:Some(name.clone()),ival:None,args:Some(parse(a.clone()))}); }
-   else { res.push(Ast{kind:AstType::Call,sval:Some(name.clone()),ival:None,args:None}); }
+   if a.len()>0 { res.push(Ast{kind:AstType::Call,sval:Some(name.clone()),fval:None,args:Some(parse(a.clone()))}); }
+   else { res.push(Ast{kind:AstType::Call,sval:Some(name.clone()),fval:None,args:None}); }
    a.clear();
   }
   i+=1;
@@ -146,10 +149,10 @@ fn parse(tokens:Vec<Token>)->Vec<Ast> {
 
 fn run(ast:Vec<Ast>)->Ret {
  let mut i=0;
- let mut ret=Ret::Const(None,Some(0));
+ let mut ret=Ret::Const(None,Some(0.0));
  while i<ast.len() {
   if ast[i].kind==AstType::Const {
-   ret=Ret::Const(ast[i].sval.clone(),ast[i].ival);
+   ret=Ret::Const(ast[i].sval.clone(),ast[i].fval);
   } else if ast[i].kind==AstType::Expr {
    ret=Ret::Expr(ast[i].args.clone().unwrap());
   } else if ast[i].kind==AstType::Call {
@@ -158,6 +161,70 @@ fn run(ast:Vec<Ast>)->Ret {
      run(vec![j]).print();
     }
     println!("");
+   } else if ast[i].sval.clone().unwrap()=="add" {
+    let c=ast[i].args.clone().unwrap();
+    let d=run(vec![c[0].clone()]);
+    let mut a:f32=0.0;
+    match d {
+     Ret::Const(None,Some(i))=>a=i,
+     _=>{ err("Unexpected result"); },
+    }
+    for j in 1..c.len() {
+     let b=run(vec![c[j].clone()]);
+     match b {
+      Ret::Const(None,Some(i))=>a+=i,
+      _=>{ err("Unexpected result"); },
+     }
+    }
+    ret=Ret::Const(None,Some(a));
+   } else if ast[i].sval.clone().unwrap()=="sub" {
+    let c=ast[i].args.clone().unwrap();
+    let d=run(vec![c[0].clone()]);
+    let mut a:f32=0.0;
+    match d {
+     Ret::Const(None,Some(i))=>a=i,
+     _=>{ err("Unexpected result"); },
+    }
+    for j in 1..c.len() {
+     let b=run(vec![c[j].clone()]);
+     match b {
+      Ret::Const(None,Some(i))=>a-=i,
+      _=>{ err("Unexpected result"); },
+     }
+    }
+    ret=Ret::Const(None,Some(a));
+   } else if ast[i].sval.clone().unwrap()=="mul" {
+    let c=ast[i].args.clone().unwrap();
+    let d=run(vec![c[0].clone()]);
+    let mut a:f32=0.0;
+    match d {
+     Ret::Const(None,Some(i))=>a=i,
+     _=>{ err("Unexpected result"); },
+    }
+    for j in 1..c.len() {
+     let b=run(vec![c[j].clone()]);
+     match b {
+      Ret::Const(None,Some(i))=>a*=i,
+      _=>{ err("Unexpected result"); },
+     }
+    }
+    ret=Ret::Const(None,Some(a));
+   } else if ast[i].sval.clone().unwrap()=="div" {
+    let c=ast[i].args.clone().unwrap();
+    let d=run(vec![c[0].clone()]);
+    let mut a:f32=0.0;
+    match d {
+     Ret::Const(None,Some(i))=>a=i,
+     _=>{ err("Unexpected result"); },
+    }
+    for j in 1..c.len() {
+     let b=run(vec![c[j].clone()]);
+     match b {
+      Ret::Const(None,Some(i))=>a/=i,
+      _=>{ err("Unexpected result"); },
+     }
+    }
+    ret=Ret::Const(None,Some(a));
    }
   }
   i+=1;
