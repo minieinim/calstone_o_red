@@ -1,6 +1,6 @@
 use std::env::args;
-use std::process::exit;
 use std::fs::read_to_string;
+use std::path::Path;
 
 enum Ret {
  Const(Option<String>,Option<f32>),
@@ -11,7 +11,7 @@ impl Ret {
   match self {
    Ret::Const(Some(s),None)=>print!("{} ",s),
    Ret::Const(None,Some(f))=>print!("{} ",f),
-   _=>{ err("Undefined result"); },
+   _=>{ panic!("Undefined result"); },
   }
  }
 }
@@ -51,11 +51,6 @@ struct Token {
  fval:Option<f32>,
 }
 
-fn err(msg:&str) {
- println!("{}",msg);
- exit(-1);
-}
-
 fn lex(code:String)->Vec<Token> {
  let len=code.len();
  let mut i=0;
@@ -74,7 +69,7 @@ fn lex(code:String)->Vec<Token> {
    let mut c=0;
    while i<len && (code.chars().nth(i).unwrap().is_ascii_digit() || code.chars().nth(i).unwrap()=='.') {
     if code.chars().nth(i).unwrap()=='.' { c+=1; }
-    if c>1 { err("Unexpected period in number"); }
+    if c>1 { panic!("Unexpected period in number"); }
     word.push(code.chars().nth(i).unwrap());
     i+=1;
    }
@@ -201,78 +196,110 @@ fn run(ast:&Vec<Ast>)->Ret {
     println!();
    } else if name=="add" {
     if args.len()<2 {
-     err("Expected 2 arguments");
+     panic!("Expected 2 arguments");
     }
     let a=run(&vec![args[0].clone()]);
-    let mut b:f32=0.0;
+    let mut b:f32;
     match a {
      Ret::Const(None,Some(f))=>b=f,
-     _=>{ err("Unexpected type"); },
+     _=>{ panic!("Unexpected type"); },
     }
     for j in 1..args.len() {
      let c=run(&vec![args[j].clone()]);
      match c {
       Ret::Const(None,Some(f))=>b+=f,
-      _=>{ err("Unexpected type"); },
+      _=>{ panic!("Unexpected type"); },
      }
     }
     res=Ret::Const(None,Some(b));
    } else if name=="sub" {
     if args.len()<2 {
-     err("Expected 2 arguments");
+     panic!("Expected 2 arguments");
     }
     let a=run(&vec![args[0].clone()]);
-    let mut b:f32=0.0;
+    let mut b:f32;
     match a {
      Ret::Const(None,Some(f))=>b=f,
-     _=>{ err("Unexpected type"); },
+     _=>{ panic!("Unexpected type"); },
     }
     for j in 1..args.len() {
      let c=run(&vec![args[j].clone()]);
      match c {
       Ret::Const(None,Some(f))=>b-=f,
-      _=>{ err("Unexpected type"); },
+      _=>{ panic!("Unexpected type"); },
      }
     }
     res=Ret::Const(None,Some(b));
    } else if name=="mul" {
     if args.len()<2 {
-     err("Expected 2 arguments");
+     panic!("Expected 2 arguments");
     }
     let a=run(&vec![args[0].clone()]);
-    let mut b:f32=0.0;
+    let mut b:f32;
     match a {
      Ret::Const(None,Some(f))=>b=f,
-     _=>{ err("Unexpected type"); },
+     _=>{ panic!("Unexpected type"); },
     }
     for j in 1..args.len() {
      let c=run(&vec![args[j].clone()]);
      match c {
       Ret::Const(None,Some(f))=>b*=f,
-      _=>{ err("Unexpected type"); },
+      _=>{ panic!("Unexpected type"); },
      }
     }
     res=Ret::Const(None,Some(b));
    } else if name=="div" {
     if args.len()<2 {
-     err("Expected 2 arguments");
+     panic!("Expected 2 arguments");
     }
     let a=run(&vec![args[0].clone()]);
-    let mut b:f32=0.0;
+    let mut b:f32;
     match a {
      Ret::Const(None,Some(f))=>b=f,
-     _=>{ err("Unexpected type"); },
+     _=>{ panic!("Unexpected type"); },
     }
     for j in 1..args.len() {
      let c=run(&vec![args[j].clone()]);
      match c {
       Ret::Const(None,Some(f))=>b/=f,
-      _=>{ err("Unexpected type"); },
+      _=>{ panic!("Unexpected type"); },
      }
     }
     res=Ret::Const(None,Some(b));
+   } else if name=="ln" {
+    if args.len()!=1 {
+     panic!("Expected 1 argument, got {}",args.len());
+    }
+    let a=run(&vec![args[0].clone()]);
+    match a {
+     Ret::Const(None,Some(f))=>res=Ret::Const(None,Some(f.ln())),
+     _=>{ panic!("Unexpected type"); },
+    }
+   } else if name=="log" {
+    if args.len()!=1 {
+     panic!("Expected 1 argument, got {}",args.len());
+    }
+    let a=run(&vec![args[0].clone()]);
+    match a {
+     Ret::Const(None,Some(f))=>res=Ret::Const(None,Some(f.log10())),
+     _=>{ panic!("Unexpected type"); },
+    }
+   } else if name=="log_" {
+    if args.len()!=2 {
+     panic!("Expected 2 arguments, got {}",args.len());
+    }
+    let a=run(&vec![args[0].clone()]);
+    let mut b:f32;
+    match a {
+     Ret::Const(None,Some(f))=>b=f,
+     _=>{ panic!("Unexpected type"); },
+    }
+    match run(&vec![args[1].clone()]) {
+     Ret::Const(None,Some(f))=>res=Ret::Const(None,Some(f.log(b))),
+     _=>{ panic!("Unexpected type"); },
+    }
    } else {
-    err("Undefined function");
+    panic!("Undefined function '{}'",name);
    }
   }
   i+=1;
@@ -283,9 +310,15 @@ fn run(ast:&Vec<Ast>)->Ret {
 fn main() {
  let argv:Vec<String>=args().collect();
  if argv.len()==1 {
-  err("Expected a file");
+  panic!("Expected a file");
  } else if !argv[1].ends_with(".cor") {
-  err("File has to end with '.cor'");
+  panic!("File has to end with '.cor'");
+ }
+ {
+  let path=Path::new(&argv[1]);
+  if !path.exists() {
+   panic!("File not found");
+  }
  }
  let code=read_to_string(argv[1].clone()).unwrap();
  let tokens=lex(code);

@@ -10,3 +10,6 @@ Calstone O Red is a lisp-like toy programming language written in rust.
 | `sub` | Subtracts numbers |
 | `mul` | Multiplies numbers |
 | `div` | Divides numbers |
+| `log` | Base-10 logarithm |
+| `ln` | Natural logarithm |
+| `log_` | Base-_ logarithm |
